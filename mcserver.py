@@ -11,7 +11,11 @@ class MinecraftServerManager(object):
         self.log_path = log_path
         self.log = open(log_path, 'r')
 
-    def exec_check_log(self, command, success, failure, timeout=None):
+    def exec_cmd(self, command):
+        self.interface.clear_input()
+        self.interface.send(command + '\n')
+
+    def exec_check_log(self, command, success, failure, timeout=-1):
         self.log.seek(0, os.SEEK_END)
         self.interface.clear_input()
         self.interface.send(command + '\n')
