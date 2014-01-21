@@ -20,21 +20,24 @@ class MinecraftServerManager(object):
         self.interface.clear_input()
         self.interface.send(command + '\n')
         check_log_args = [success, failure]
-        if timeout is not None:
+        if timeout != -1:
             check_log_args.append(timeout)
         self.check_log(*check_log_args)
 
     def check_log(self, success_re, failure_re, timeout=30):
         start_time = time.time()
-        timeout_time = time.time() + timeout
+        timeout_time = None
+        if timeout is not None:
+            timeout_time = time.time() + timeout
         while True:
             current_time = time.time()
-            if current_time < start_time:
-                # Something weird happened with the system time.
-                # We're gonna bail just to be safe.
-                raise ServerCommandTimeout()
-            if current_time > timeout_time:
-                raise ServerCommandTimeout()
+            if timeout_time is not None:
+                if current_time < start_time:
+                    # Something weird happened with the system time.
+                    # We're gonna bail just to be safe.
+                    raise ServerCommandTimeout()
+                if current_time > timeout_time:
+                    raise ServerCommandTimeout()
             # This seems wonky and quite non-Pythonic, but it is apparently the
             # best way to do it.
             #
