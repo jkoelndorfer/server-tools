@@ -26,6 +26,11 @@ class BackupModeApplication(object):
         except mcserver.LogNotSpecifiedError:
             print >> sys.stderr, 'Must specify path to the Minecraft ' + \
                 'server log with -l'
+        except mcserver.TmuxCommandError as e:
+            print >> sys.stderr, 'tmux exited with a non-zero return code.  ' + \
+                'Are your socket, session, and pane set correctly?  ' + \
+                'Do you have permissions to the tmux socket?'
+
 
     @classmethod
     def state_to_bool(cls, state):
