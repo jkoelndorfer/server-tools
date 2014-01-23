@@ -86,13 +86,11 @@ class Tmux(object):
         tmux_command = [self.tmux_path]
         tmux_command.extend(command)
         output = None
-        rc = 0
         try:
             output = subprocess.check_output(tmux_command, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            rc = e.returncode
-            output = e.output
-        return (rc, output)
+            raise TmuxCommandError(e.returncode, e.cmd, e.output)
+        return output
 
 class TmuxPaneInterface(object):
     BACKSPACE = '\x7F'
@@ -115,8 +113,8 @@ class TmuxPaneInterface(object):
         tmux_pane_cmd.append(command[0])
         tmux_pane_cmd.extend([self.tmux.TARGET_OPT, self.target])
         tmux_pane_cmd.extend(command[1:])
-        rc, output = self.tmux.exec_cmd(tmux_pane_cmd)
-        return (rc, output)
+        output = self.tmux.exec_cmd(tmux_pane_cmd)
+        return output
 
     def send(self, s):
         self._exec_cmd(['send-keys', s])
@@ -145,3 +143,4 @@ class Util(object):
 class LogNotSpecifiedError(Exception): pass
 class ServerCommandError(Exception): pass
 class ServerCommandTimeout(ServerCommandError): pass
+class TmuxCommandError(subprocess.CalledProcessError): pass
