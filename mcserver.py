@@ -129,7 +129,7 @@ class Util(object):
     @staticmethod
     def config_argparse_common(arg_parser):
         p = arg_parser
-        p.add_argument('-l', '--server-log', default='/srv/minecraft/server.log',
+        p.add_argument('-l', '--server-log', default=None,
             help='Path to the Minecraft server log.'
         )
         p.add_argument('-s', '--tmux-session', default='0',
