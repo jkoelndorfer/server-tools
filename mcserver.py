@@ -6,17 +6,17 @@ import time
 class MinecraftServerManager(object):
     LOG_READ_WAIT = 1
 
-    def __init__(self, interface, log_path):
+    def __init__(self, interface, log_path=None):
         self.interface = interface
-        self.log_path = log_path
-        self.log = open(log_path, 'r')
+        self.log = None
+        if log_path is not None:
+            self.log = open(log_path, 'r')
 
     def exec_cmd(self, command):
         self.interface.clear_input()
         self.interface.send(command + '\n')
 
     def exec_check_log(self, command, success, failure, timeout=-1):
-        self.log.seek(0, os.SEEK_END)
         self.interface.clear_input()
         self.interface.send(command + '\n')
         check_log_args = [success, failure]
@@ -25,6 +25,9 @@ class MinecraftServerManager(object):
         self.check_log(*check_log_args)
 
     def check_log(self, success_re, failure_re, timeout=30):
+        if self.log is None:
+            raise LogNotSpecifiedError('log must not be None to use check_log()')
+        self.log.seek(0, os.SEEK_END)
         start_time = time.time()
         timeout_time = None
         if timeout is not None:
@@ -122,5 +125,6 @@ class Tmux(object):
             output = e.output
         return (rc, output)
 
+class LogNotSpecifiedError(Exception): pass
 class ServerCommandError(Exception): pass
 class ServerCommandTimeout(ServerCommandError): pass
