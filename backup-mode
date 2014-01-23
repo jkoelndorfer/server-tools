@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from mcserver import Tmux, TmuxPaneInterface, MinecraftServerManager
+from mcserver import TmuxPaneInterface, MinecraftServerManager
 
 class BackupModeApplication(object):
     def __init__(self):
@@ -12,8 +12,8 @@ class BackupModeApplication(object):
 
     def run(self, argv):
         args = self.arg_parser.parse_args(argv)
-        tmux_interface = TmuxPaneInterface(Tmux(), args.tmux_session,
-            args.tmux_pane, socket_path=args.tmux_socket_path)
+        tmux_interface = TmuxPaneInterface(args.tmux_session, args.tmux_pane,
+            socket_path=args.tmux_socket_path)
         server_manager = MinecraftServerManager(tmux_interface,
             args.server_log)
         if self.state_to_bool(args.state):

@@ -75,10 +75,29 @@ class MinecraftServerManager(object):
         cmd = 'save-{}'.format(state)
         self.exec_check_log(cmd, success_re, None)
 
+class Tmux(object):
+    SOCKET_PATH_OPT = '-S'
+    TARGET_OPT = '-t'
+
+    def __init__(self, tmux_path='/usr/bin/tmux'):
+        self.tmux_path = tmux_path
+
+    def exec_cmd(self, command):
+        tmux_command = [self.tmux_path]
+        tmux_command.extend(command)
+        output = None
+        rc = 0
+        try:
+            output = subprocess.check_output(tmux_command, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            rc = e.returncode
+            output = e.output
+        return (rc, output)
+
 class TmuxPaneInterface(object):
     BACKSPACE = '\x7F'
 
-    def __init__(self, tmux, session, pane, socket_path=None):
+    def __init__(self, session, pane, tmux=Tmux(), socket_path=None):
         self.tmux = tmux
         self.session = session
         self.pane = pane
@@ -106,24 +125,6 @@ class TmuxPaneInterface(object):
     def target(self):
         return '{}:{}'.format(self.session, self.pane)
 
-class Tmux(object):
-    SOCKET_PATH_OPT = '-S'
-    TARGET_OPT = '-t'
-
-    def __init__(self, tmux_path='/usr/bin/tmux'):
-        self.tmux_path = tmux_path
-
-    def exec_cmd(self, command):
-        tmux_command = [self.tmux_path]
-        tmux_command.extend(command)
-        output = None
-        rc = 0
-        try:
-            output = subprocess.check_output(tmux_command, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            rc = e.returncode
-            output = e.output
-        return (rc, output)
 
 class LogNotSpecifiedError(Exception): pass
 class ServerCommandError(Exception): pass
