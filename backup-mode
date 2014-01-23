@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from mcserver import TmuxPaneInterface, MinecraftServerManager
+from mcserver import Util, TmuxPaneInterface, MinecraftServerManager
 
 class BackupModeApplication(object):
     def __init__(self):
@@ -34,18 +34,7 @@ class BackupModeApplication(object):
 
     def config_argparse(self):
         p = self.arg_parser
-        p.add_argument('-l', '--server-log', default='/srv/minecraft/server.log',
-            help='Path to the Minecraft server log.'
-        )
-        p.add_argument('-s', '--tmux-session', default='0',
-            help='Name of the tmux session containing the pane specified by -p.'
-        )
-        p.add_argument('-p', '--tmux-pane', default='0',
-            help='Name or index of the tmux pane the server is running in.'
-        )
-        p.add_argument('-S', '--tmux-socket-path', default=None,
-            help='Path to the socket tmux will connect to.'
-        )
+        Util.config_argparse_common(p)
         p.add_argument('state',
             help='If true, puts the server in backup mode.  Backup mode '
             'disables saving and forces a full world save.  If false, backup '

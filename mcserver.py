@@ -125,6 +125,22 @@ class TmuxPaneInterface(object):
     def target(self):
         return '{}:{}'.format(self.session, self.pane)
 
+class Util(object):
+    @staticmethod
+    def config_argparse_common(arg_parser):
+        p = arg_parser
+        p.add_argument('-l', '--server-log', default='/srv/minecraft/server.log',
+            help='Path to the Minecraft server log.'
+        )
+        p.add_argument('-s', '--tmux-session', default='0',
+            help='Name of the tmux session containing the pane specified by -p.'
+        )
+        p.add_argument('-p', '--tmux-pane', default='0',
+            help='Name or index of the tmux pane the server is running in.'
+        )
+        p.add_argument('-S', '--tmux-socket-path', default=None,
+            help='Path to the socket tmux will connect to.'
+        )
 
 class LogNotSpecifiedError(Exception): pass
 class ServerCommandError(Exception): pass
