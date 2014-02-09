@@ -57,8 +57,22 @@ class MinecraftServerManager(object):
                     raise ServerCommandError()
             time.sleep(self.LOG_READ_WAIT)
 
+    @classmethod
+    def check_log_regex(cls, strings):
+        escaped_strings = [re.escape(x) for x in strings]
+        return '(' + '|'.join(escaped_strings) + ')'
+
     def force_save(self):
-        self.exec_check_log('save-all', 'Saved the world', 'Saving failed')
+        save_success_messages = [
+            'Saved the world',
+            'Save complete'
+        ]
+        save_failure_messages = [
+            'Saving failed'
+        ]
+        save_success_re = self.check_log_regex(save_success_messages)
+        save_failure_re = self.check_log_regex(save_failure_messages)
+        self.exec_check_log('save-all', save_success_re, save_failure_re)
 
     def save_on(self):
         self._set_save('on')
@@ -67,11 +81,19 @@ class MinecraftServerManager(object):
         self._set_save('off')
 
     def _set_save(self, state):
-        save_toggle_done = [x.format(state) for x in [
-            'Turned {} world auto-saving',
-            'Saving is already turned {}'
-        ]]
-        success_re = '({})'.format('|'.join(save_toggle_done))
+        save_toggle_messages = {
+            'on': [
+                'Turned on world auto-saving',
+                'Saving is already turned on',
+                'Enabled level saving'
+            ],
+            'off': [
+                'Turned off world auto-saving',
+                'Saving is already turned off',
+                'Disabled level saving'
+            ]
+        }
+        success_re = self.check_log_regex(save_toggle_messages[state])
         cmd = 'save-{}'.format(state)
         self.exec_check_log(cmd, success_re, None)
 
