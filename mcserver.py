@@ -3,6 +3,7 @@ import re
 import subprocess
 import time
 
+
 class MinecraftServerManager(object):
     LOG_READ_WAIT = 1
 
@@ -26,7 +27,9 @@ class MinecraftServerManager(object):
 
     def check_log(self, success_re, failure_re, timeout=30):
         if self.log is None:
-            raise LogNotSpecifiedError('log must not be None to use check_log()')
+            raise LogNotSpecifiedError(
+                'log must not be None to use check_log()'
+            )
         self.log.seek(0, os.SEEK_END)
         start_time = time.time()
         timeout_time = None
@@ -97,6 +100,7 @@ class MinecraftServerManager(object):
         cmd = 'save-{}'.format(state)
         self.exec_check_log(cmd, success_re, None)
 
+
 class Tmux(object):
     SOCKET_PATH_OPT = '-S'
     TARGET_OPT = '-t'
@@ -109,10 +113,13 @@ class Tmux(object):
         tmux_command.extend(command)
         output = None
         try:
-            output = subprocess.check_output(tmux_command, stderr=subprocess.STDOUT)
+            output = subprocess.check_output(
+                tmux_command, stderr=subprocess.STDOUT
+            )
         except subprocess.CalledProcessError as e:
             raise TmuxCommandError(e.returncode, e.cmd, e.output)
         return output
+
 
 class TmuxPaneInterface(object):
     BACKSPACE = '\x7F'
@@ -145,20 +152,26 @@ class TmuxPaneInterface(object):
     def target(self):
         return '{}:{}'.format(self.session, self.pane)
 
+
 class Util(object):
     @staticmethod
     def config_argparse_common(arg_parser):
         p = arg_parser
-        p.add_argument('-l', '--server-log', default=None,
+        p.add_argument(
+            '-l', '--server-log', default=None,
             help='Path to the Minecraft server log.'
         )
-        p.add_argument('-s', '--tmux-session', default='0',
-            help='Name of the tmux session containing the pane specified by -p.'
+        p.add_argument(
+            '-s', '--tmux-session', default='0',
+            help='Name of the tmux session containing the pane specified by '
+            '-p.'
         )
-        p.add_argument('-p', '--tmux-pane', default='0',
+        p.add_argument(
+            '-p', '--tmux-pane', default='0',
             help='Name or index of the tmux pane the server is running in.'
         )
-        p.add_argument('-S', '--tmux-socket-path', default=None,
+        p.add_argument(
+            '-S', '--tmux-socket-path', default=None,
             help='Path to the socket tmux will connect to.'
         )
 
