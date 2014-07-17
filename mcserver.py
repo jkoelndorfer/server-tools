@@ -121,28 +121,28 @@ class Tmux(object):
         return output
 
 
-class TmuxPaneInterface(object):
+class TmuxInterface(object):
     BACKSPACE = '\x7F'
 
-    def __init__(self, session, pane, tmux=Tmux(), socket_path=None):
+    def __init__(self, session, window, tmux=Tmux(), socket_path=None):
         self.tmux = tmux
         self.session = session
-        self.pane = pane
+        self.window = window
         self.socket_path = socket_path
 
     def clear_input(self):
         self._exec_cmd(['send-keys', self.BACKSPACE * 500])
 
     def _exec_cmd(self, command):
-        tmux_pane_cmd = []
+        tmux_window_cmd = []
         if self.socket_path is not None:
-            tmux_pane_cmd.extend([self.tmux.SOCKET_PATH_OPT, self.socket_path])
+            tmux_window_cmd.extend([self.tmux.SOCKET_PATH_OPT, self.socket_path])
         # tmux is picky about argument ordering - we need to make sure -t
         # appears immediately after the command.
-        tmux_pane_cmd.append(command[0])
-        tmux_pane_cmd.extend([self.tmux.TARGET_OPT, self.target])
-        tmux_pane_cmd.extend(command[1:])
-        output = self.tmux.exec_cmd(tmux_pane_cmd)
+        tmux_window_cmd.append(command[0])
+        tmux_window_cmd.extend([self.tmux.TARGET_OPT, self.target])
+        tmux_window_cmd.extend(command[1:])
+        output = self.tmux.exec_cmd(tmux_window_cmd)
         return output
 
     def send(self, s):
@@ -150,7 +150,7 @@ class TmuxPaneInterface(object):
 
     @property
     def target(self):
-        return '{}:{}'.format(self.session, self.pane)
+        return '{}:{}'.format(self.session, self.window)
 
 
 class Util(object):
@@ -163,12 +163,12 @@ class Util(object):
         )
         p.add_argument(
             '-s', '--tmux-session', default='0',
-            help='Name of the tmux session containing the pane specified by '
-            '-p.'
+            help='Name of the tmux session containing the window specified by '
+            '-w.'
         )
         p.add_argument(
-            '-p', '--tmux-pane', default='0',
-            help='Name or index of the tmux pane the server is running in.'
+            '-w', '--tmux-window', default='0',
+            help='Name or index of the tmux window the server is running in.'
         )
         p.add_argument(
             '-S', '--tmux-socket-path', default=None,
