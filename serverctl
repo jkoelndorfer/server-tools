@@ -1,0 +1,128 @@
+#!/usr/bin/python
+
+import argparse
+import os
+import pwd
+import sys
+
+from mcserver import MinecraftServerManager, Tmux, TmuxCommandError, TmuxInterface, Util
+
+
+class StartServerApplication(object):
+    SUPERUSER_UID = 0
+
+    RC_SUCCESS = 0
+    RC_RUNNING_AS_ROOT = 10
+    RC_SERVER_START_ERROR = 11
+    RC_SERVER_STOP_ERROR = 12
+
+    def __init__(self):
+        self.arg_parser = argparse.ArgumentParser()
+        self.config_argparse()
+
+    def config_argparse(self):
+        p = self.arg_parser
+        Util.config_argparse_common(p)
+        p.add_argument(
+            '--minecraft-user', '-u', dest='user', metavar='user',
+            help='The user to launch the server as.'
+        )
+        p.add_argument(
+            '--working-directory', '-d', dest='working_directory',
+            help='''The directory to run the server command in.  Defaults to
+            the current directory.'''
+        )
+        p.add_argument(
+            'mode', metavar='mode', choices=['start', 'stop'],
+            help='"start" to start the server, or "stop" to stop it.'
+        )
+        p.add_argument(
+            'server_command', metavar='command', nargs='*',
+            help='''The command to execute in order to launch the Minecraft
+            server.  Only required if mode is "start".'''
+        )
+
+    def drop_privileges(self, mc_user):
+        e = None
+        try:
+            mc_user_uid, _, _, mc_user_home, *_ = pwd.getpwnam(mc_user)[2:7]
+            os.setuid(mc_user_uid)
+            os.environ['HOME'] = mc_user_home
+        except KeyError:
+            raise UserSwitchError(
+                'User "{}" does not seem to exist'.format(mc_user)
+            )
+        except TypeError:
+            # No user specified
+            pass
+        except PermissionError:
+            e = UserSwitchError("Can't switch users - not root!")
+
+        if os.geteuid() == self.SUPERUSER_UID:
+            raise ReallyStupidIdeaError(
+                'Running Minecraft as root is a really, really bad idea.'
+            )
+        elif e is not None:
+            raise e
+
+    def server_start(self, tmux_window, server_launch_cmd, working_directory=None):
+        mc_server_cmd = ' '.join(server_launch_cmd)
+        tmux = tmux_window.tmux
+        if working_directory is not None:
+            os.chdir(working_directory)
+        try:
+            tmux.exec_cmd([
+                'new-session', '-d', '-s', tmux_window.session, '-n',
+                tmux_window.window, mc_server_cmd
+            ])
+        except TmuxCommandError:
+            try:
+                tmux.exec_cmd([
+                    'new-window', '-a', '-n', tmux_window.window, '-t',
+                    '{}:0'.format(tmux_window.session), mc_server_cmd
+                ])
+            except TmuxCommandError as e:
+                raise ServerStartError(str(e))
+
+    def server_stop(self, tmux_window):
+        mc_server = MinecraftServerManager(tmux_window)
+        try:
+            mc_server.save_off()
+            mc_server.force_save()
+            mc_server.exec_cmd('stop')
+        except TmuxCommandError as e:
+            raise ServerStopError(str(e))
+
+    def run(self, argv):
+        args = self.arg_parser.parse_args(argv)
+        try:
+            self.drop_privileges(args.user)
+        except UserSwitchError as e:
+            print('WARNING: User switch failed - {}'.format(e), file=sys.stderr)
+        except ReallyStupidIdeaError as e:
+            print('FATAL: {}'.format(e), file=sys.stderr)
+            return self.RC_RUNNING_AS_ROOT
+
+        tmux_window = TmuxInterface(args.tmux_session, args.tmux_window)
+        try:
+            if args.mode == 'start':
+                self.server_start(
+                    tmux_window, args.server_command, args.working_directory
+                )
+            elif args.mode == 'stop':
+                self.server_stop(tmux_window)
+            else:
+                # argparse should not allow this to happen
+                pass
+        except ServerStartError:
+            return self.RC_SERVER_START_ERROR
+        except ServerStopError:
+            return self.RC_SERVER_STOP_ERROR
+
+class UserSwitchError(Exception): pass
+class ReallyStupidIdeaError(Exception): pass
+class ServerStartError(Exception): pass
+class ServerStopError(Exception): pass
+
+if __name__ == '__main__':
+    exit(StartServerApplication().run(sys.argv[1:]))
