@@ -1,3 +1,4 @@
+import configparser
 import os
 import re
 import subprocess
@@ -7,30 +8,31 @@ import time
 class MinecraftServerManager(object):
     LOG_READ_WAIT = 1
 
-    def __init__(self, interface, log_path=None):
+    def __init__(self, interface, server_jar, user=None, log_path=None,
+        java_path='java', java_options='-Xmx2G -Xms2G', server_args='nogui'):
         self.interface = interface
-        self.log = None
-        if log_path is not None:
-            self.log = open(log_path, 'r')
+        self.server_jar = server_jar
+        self.user = user
+        if log_path is None:
+            log_path = os.path.join(os.path.split(server_jar)[0], 'server.log')
+        self.log = open(log_path, 'r')
+        self.java_path = java_path
+        self.java_options = java_options
+        self.server_args = server_args
 
     def exec_cmd(self, command):
         self.interface.clear_input()
         self.interface.send(command + '\n')
 
     def exec_check_log(self, command, success, failure, timeout=-1):
-        self.interface.clear_input()
-        self.interface.send(command + '\n')
+        self.log.seek(0, os.SEEK_END)
+        self.exec_cmd(command)
         check_log_args = [success, failure]
         if timeout != -1:
             check_log_args.append(timeout)
         self.check_log(*check_log_args)
 
     def check_log(self, success_re, failure_re, timeout=30):
-        if self.log is None:
-            raise LogNotSpecifiedError(
-                'log must not be None to use check_log()'
-            )
-        self.log.seek(0, os.SEEK_END)
         start_time = time.time()
         timeout_time = None
         if timeout is not None:
@@ -100,15 +102,59 @@ class MinecraftServerManager(object):
         cmd = 'save-{}'.format(state)
         self.exec_check_log(cmd, success_re, None)
 
+    @property
+    def server_launch_cmd(self):
+        return '{java} {java_options} -jar {server_jar} {server_args}'.format(
+            java=self.java_path, java_options=self.java_options,
+            server_jar=self.server_jar, server_args=self.server_args
+        )
 
-class Tmux(object):
+    @property
+    def server_dir(self):
+        return os.path.split(self.server_jar)[0]
+
+    def start(self):
+        old_cwd = os.getcwd()
+        os.chdir(self.server_dir)
+        try:
+            self.interface.invoke_interface(self.server_launch_cmd)
+        finally:
+            os.chdir(old_cwd)
+
+    def stop(self, do_save=False):
+        if do_save:
+            self.save_off()
+            self.force_save()
+        self.exec_cmd('stop')
+
+
+class TmuxInterface(object):
+    BACKSPACE = '\x7F'
     SOCKET_PATH_OPT = '-S'
     TARGET_OPT = '-t'
 
-    def __init__(self, tmux_path='/usr/bin/tmux'):
+    def __init__(self, session, window, tmux_path='/usr/bin/tmux', socket_path=None):
+        self.session = session
+        self.window = window
         self.tmux_path = tmux_path
+        self.socket_path = socket_path
 
-    def exec_cmd(self, command):
+    def clear_input(self):
+        self.send(self.BACKSPACE * 500)
+
+    def exec_window_cmd(self, command):
+        tmux_window_cmd = []
+        if self.socket_path is not None:
+            tmux_window_cmd.extend([self.SOCKET_PATH_OPT, self.socket_path])
+        # tmux is picky about argument ordering - we need to make sure -t
+        # appears immediately after the command.
+        tmux_window_cmd.append(command[0])
+        tmux_window_cmd.extend([self.TARGET_OPT, self.target])
+        tmux_window_cmd.extend(command[1:])
+        output = self.exec_tmux_cmd(tmux_window_cmd)
+        return output
+
+    def exec_tmux_cmd(self, command):
         tmux_command = [self.tmux_path]
         tmux_command.extend(command)
         output = None
@@ -120,33 +166,31 @@ class Tmux(object):
             raise TmuxCommandError(e.returncode, e.cmd, e.output)
         return output
 
+    def invoke_interface(self, command):
+        try:
+            cmd = [
+                'new-session', '-d', '-s', self.session, '-n',
+                self.window, command
+            ]
+            self.exec_tmux_cmd(cmd)
+        except TmuxCommandError:
+            try:
+                cmd = [
+                    'new-window', '-a', '-n', self.window, '-t',
+                    '{}:0'.format(self.session), command
+                ]
+                self.exec_tmux_cmd(cmd)
+            except TmuxCommandError as e:
+                raise ServerStartError(str(e))
 
-class TmuxInterface(object):
-    BACKSPACE = '\x7F'
-
-    def __init__(self, session, window, tmux=Tmux(), socket_path=None):
-        self.tmux = tmux
-        self.session = session
-        self.window = window
-        self.socket_path = socket_path
-
-    def clear_input(self):
-        self._exec_cmd(['send-keys', self.BACKSPACE * 500])
-
-    def _exec_cmd(self, command):
-        tmux_window_cmd = []
-        if self.socket_path is not None:
-            tmux_window_cmd.extend([self.tmux.SOCKET_PATH_OPT, self.socket_path])
-        # tmux is picky about argument ordering - we need to make sure -t
-        # appears immediately after the command.
-        tmux_window_cmd.append(command[0])
-        tmux_window_cmd.extend([self.tmux.TARGET_OPT, self.target])
-        tmux_window_cmd.extend(command[1:])
-        output = self.tmux.exec_cmd(tmux_window_cmd)
-        return output
+    @classmethod
+    def read_config_options(cls, configparser, section):
+        session = configparser.get(section, 'session', fallback='0')
+        window = configparser.get(section, 'window', fallback='0')
+        return (session, window)
 
     def send(self, s):
-        self._exec_cmd(['send-keys', s])
+        self.exec_window_cmd(['send-keys', s])
 
     @property
     def target(self):
@@ -175,7 +219,32 @@ class Util(object):
             help='Path to the socket tmux will connect to.'
         )
 
-class LogNotSpecifiedError(Exception): pass
+    @staticmethod
+    def load_config(config_path, section=None):
+        config = configparser.ConfigParser()
+        config.read(config_path)
+        if section is None:
+            section = config.sections()[0]
+
+        interface_type = config.get(section, 'interface')
+        # TODO: See if there is a better way to instantiate an interface
+        # of interface_type
+        interface_class = globals()[interface_type]
+        interface_args = interface_class.read_config_options(config, section)
+        interface = interface_class(*interface_args)
+
+        server_kwargs = dict()
+        for arg in ['server_jar', 'user', 'log_path', 'java_path',
+            'java_options', 'server_args']:
+            config_arg_name = arg.replace('_', ' ')
+            try:
+                server_kwargs[arg] = config.get(section, config_arg_name)
+            except configparser.NoOptionError:
+                # If we don't get the config parameters we need,
+                # MinecraftServerManager can raise an exception
+                pass
+        return MinecraftServerManager(interface, **server_kwargs)
+
 class ServerCommandError(Exception): pass
 class ServerCommandTimeout(ServerCommandError): pass
 class TmuxCommandError(subprocess.CalledProcessError): pass

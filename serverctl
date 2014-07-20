@@ -5,7 +5,7 @@ import os
 import pwd
 import sys
 
-from mcserver import MinecraftServerManager, Tmux, TmuxCommandError, TmuxInterface, Util
+from mcserver import MinecraftServerManager, TmuxCommandError, TmuxInterface, Util
 
 
 class StartServerApplication(object):
@@ -22,26 +22,19 @@ class StartServerApplication(object):
 
     def config_argparse(self):
         p = self.arg_parser
-        Util.config_argparse_common(p)
+        modes = ['start', 'stop', 'save-on', 'save-off', 'save-all']
         p.add_argument(
-            '--minecraft-user', '-u', dest='user', metavar='user',
-            help='The user to launch the server as.'
+            '--config', '-c', dest='config', default='/etc/mcservermanager.conf',
+            help='The MinecraftServerManager config to read.'
         )
         p.add_argument(
-            '--working-directory', '-d', dest='working_directory',
-            help='''The directory to run the server command in.  Defaults to
-            the current directory.'''
-        )
-        p.add_argument(
-            'mode', metavar='mode', choices=['start', 'stop'],
-            help='"start" to start the server, or "stop" to stop it.'
-        )
-        p.add_argument(
-            'server_command', metavar='command', nargs='*',
-            help='''The command to execute in order to launch the Minecraft
-            server.  Only required if mode is "start".'''
+            'mode', metavar='mode', choices=modes,
+            help='''One of: "start" to start the server, "stop" to stop it,
+            "save-on" to enable world saving, "save-off" to disable world
+            saving, or "save-all" to force a world save'''
         )
 
+    # TODO: Move this into the MinecraftServerManager server start logic?
     def drop_privileges(self, mc_user):
         e = None
         try:
@@ -65,55 +58,28 @@ class StartServerApplication(object):
         elif e is not None:
             raise e
 
-    def server_start(self, tmux_window, server_launch_cmd, working_directory=None):
-        mc_server_cmd = ' '.join(server_launch_cmd)
-        tmux = tmux_window.tmux
-        if working_directory is not None:
-            os.chdir(working_directory)
-        try:
-            tmux.exec_cmd([
-                'new-session', '-d', '-s', tmux_window.session, '-n',
-                tmux_window.window, mc_server_cmd
-            ])
-        except TmuxCommandError:
-            try:
-                tmux.exec_cmd([
-                    'new-window', '-a', '-n', tmux_window.window, '-t',
-                    '{}:0'.format(tmux_window.session), mc_server_cmd
-                ])
-            except TmuxCommandError as e:
-                raise ServerStartError(str(e))
-
-    def server_stop(self, tmux_window):
-        mc_server = MinecraftServerManager(tmux_window)
-        try:
-            mc_server.save_off()
-            mc_server.force_save()
-            mc_server.exec_cmd('stop')
-        except TmuxCommandError as e:
-            raise ServerStopError(str(e))
-
     def run(self, argv):
         args = self.arg_parser.parse_args(argv)
+        mc_server_manager = Util.load_config(args.config)
         try:
-            self.drop_privileges(args.user)
+            self.drop_privileges(mc_server_manager.user)
         except UserSwitchError as e:
             print('WARNING: User switch failed - {}'.format(e), file=sys.stderr)
         except ReallyStupidIdeaError as e:
             print('FATAL: {}'.format(e), file=sys.stderr)
             return self.RC_RUNNING_AS_ROOT
-
-        tmux_window = TmuxInterface(args.tmux_session, args.tmux_window)
+        mode_calls = {
+            'start':     mc_server_manager.start,
+            'stop':      mc_server_manager.stop,
+            'save-on':   mc_server_manager.save_on,
+            'save-off':  mc_server_manager.save_off,
+            'save-all':  mc_server_manager.force_save
+        }
         try:
-            if args.mode == 'start':
-                self.server_start(
-                    tmux_window, args.server_command, args.working_directory
-                )
-            elif args.mode == 'stop':
-                self.server_stop(tmux_window)
-            else:
-                # argparse should not allow this to happen
-                pass
+            mode_calls[args.mode]()
+        except KeyError:
+            # argparse should not allow this to happen
+            pass
         except ServerStartError:
             return self.RC_SERVER_START_ERROR
         except ServerStopError:
