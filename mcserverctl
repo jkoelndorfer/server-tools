@@ -28,6 +28,10 @@ class StartServerApplication(object):
             help='The MinecraftServerManager config to read.'
         )
         p.add_argument(
+            '--server', '-s', dest='server', default=None,
+            help='The server configuration section to use from the read config file.'
+        )
+        p.add_argument(
             'mode', metavar='mode', choices=modes,
             help='''One of: "start" to start the server, "stop" to stop it,
             "save-on" to enable world saving, "save-off" to disable world
@@ -60,7 +64,7 @@ class StartServerApplication(object):
 
     def run(self, argv):
         args = self.arg_parser.parse_args(argv)
-        mc_server_manager = Util.load_config(args.config)
+        mc_server_manager = Util.load_config(args.config, args.server)
         try:
             self.drop_privileges(mc_server_manager.user)
         except UserSwitchError as e:
