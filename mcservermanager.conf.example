@@ -1,0 +1,22 @@
+# The section name is the name of the server as passed to
+# the --server argument of mcserverctl.
+[packname]
+
+# interface identifies how you want the Minecraft server manager to interact
+# with the Minecraft server.  So far, the only valid option is TmuxInterface,
+# which uses tmux and therefore requires tmux be installed.
+#
+# session and window are options specific to TmuxInterface
+interface        = TmuxInterface
+session          = minecraft
+window           = server
+
+# The user to run the Minecraft server as. mcserverctl will drop privileges if
+# running as root.
+user             = mc
+
+# Java options to use when running the Minecraft server
+java options     = -Xmx4G -Xms4G
+
+# Path to the Minecraft server jar
+server jar       = /path/to/minecraft/server.jar
