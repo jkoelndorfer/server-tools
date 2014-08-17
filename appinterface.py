@@ -24,6 +24,9 @@ import sys
 class AppInterfaceManager(object):
     def __init__(self, interface_dir='interfaces'):
         self.app_interfaces = dict()
+        if not os.path.isabs(interface_dir):
+            interface_dir = os.path.join(os.path.dirname(__file__),
+                interface_dir)
         self.interface_dir = interface_dir
 
     def get(self, name):
