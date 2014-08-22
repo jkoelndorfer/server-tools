@@ -40,7 +40,7 @@ class StartServerApplication(object):
         p = self.arg_parser
         modes = ['start', 'stop', 'save-on', 'save-off', 'save-all']
         p.add_argument(
-            '--config', '-c', dest='config', default='/etc/mcservermanager.conf',
+            '--config', '-c', dest='config', default='mcserverctl.conf',
             help='The MinecraftServerManager config to read.'
         )
         p.add_argument(
