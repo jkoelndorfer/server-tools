@@ -24,21 +24,28 @@ import appinterface
 
 @appinterface.register
 class TmuxInterface(object):
+    """An interface that allows programmatic interaction to applications
+    running inside tmux.
+    """
+
     BACKSPACE = '\x7F'
     SOCKET_PATH_OPT = '-S'
     TARGET_OPT = '-t'
 
     def __init__(self, session, window, tmux_path='/usr/bin/tmux',
                  socket_path=None):
+        """Initializes a TmuxInterface."""
         self.session = session
         self.window = window
         self.tmux_path = tmux_path
         self.socket_path = socket_path
 
     def clear_input(self):
+        """Attempts to clear any program input by sending lots of backspaces."""
         self.send(self.BACKSPACE * 500)
 
     def exec_window_cmd(self, command):
+        """Executes a tmux command (e.g. send-keys) against the target window."""
         tmux_window_cmd = []
         if self.socket_path is not None:
             tmux_window_cmd.extend([self.SOCKET_PATH_OPT, self.socket_path])
@@ -51,6 +58,7 @@ class TmuxInterface(object):
         return output
 
     def exec_tmux_cmd(self, command):
+        """Executes a tmux subcommand."""
         tmux_command = [self.tmux_path]
         tmux_command.extend(command)
         output = None
@@ -63,6 +71,7 @@ class TmuxInterface(object):
         return output
 
     def invoke_interface(self, command):
+        """Invokes command inside a tmux session."""
         try:
             cmd = [
                 'new-session', '-d', '-s', self.session, '-n',
@@ -81,15 +90,21 @@ class TmuxInterface(object):
 
     @classmethod
     def read_config_options(cls, configparser, section):
+        """Given a configparser, reads and returns configuration options
+        necessary to instantiate a TmuxInterface object.
+        """
         session = configparser.get(section, 'session', fallback='0')
         window = configparser.get(section, 'window', fallback='0')
         return (session, window)
 
     def send(self, s):
+        """Sends the keys given by s to the target tmux window."""
         self.exec_window_cmd(['send-keys', s])
 
     @property
     def target(self):
+        """Returns an identifer suitable for uniquely identifying the tmux
+        window targeted by this object (via tmux option -t)."""
         return '{}:{}'.format(self.session, self.window)
 
 
