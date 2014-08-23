@@ -79,14 +79,11 @@ class TmuxInterface(object):
             ]
             self.exec_tmux_cmd(cmd)
         except TmuxCommandError:
-            try:
-                cmd = [
-                    'new-window', '-a', '-n', self.window, '-t',
-                    '{}:0'.format(self.session), command
-                ]
-                self.exec_tmux_cmd(cmd)
-            except TmuxCommandError as e:
-                raise ServerStartError(str(e))
+            cmd = [
+                'new-window', '-a', '-n', self.window, '-t',
+                '{}:0'.format(self.session), command
+            ]
+            self.exec_tmux_cmd(cmd)
 
     @classmethod
     def read_config_options(cls, configparser, section):
