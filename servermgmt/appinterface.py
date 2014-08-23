@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import imp
+import importlib
 import glob
 import os.path
 import sys
@@ -43,25 +43,21 @@ class AppInterfaceManager(object):
         return cls
 
     def import_interfaces(self):
-        sys.path.append(os.path.dirname(__file__))
-        for module in glob.glob(os.path.join(self.interface_dir, '*.py')):
-            import_name = os.path.basename(module[:-3])
-            try:
-                imp.load_source(import_name, module)
-            except:
-                # TODO: implement some better error handling here
-                pass
+        sys.path.append(os.path.dirname(self.interface_dir))
+        d = self.interface_dir
+        for module in glob.glob(os.path.join(d, '*.py')):
+            import_namespace = '{}.{}'.format(os.path.basename(d),
+                os.path.basename(module[:-3]))
+            importlib.import_module(import_namespace)
 
 
 class InvalidServerInterface(Exception): pass
 class AppInterfaceError(Exception): pass
 
-mgr = AppInterfaceManager()
-
 def register(*args, **kwargs):
-    return mgr.register(*args, **kwargs)
+    return _mgr.register(*args, **kwargs)
 
 def get(*args, **kwargs):
-    return mgr.get(*args, **kwargs)
+    return _mgr.get(*args, **kwargs)
 
-mgr.import_interfaces()
+_mgr = AppInterfaceManager()

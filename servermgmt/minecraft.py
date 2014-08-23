@@ -1,4 +1,4 @@
-# mcserver.py - library to manage a Minecraft server
+# minecraft.py - library to manage a Minecraft server
 # Copyright (C) 2014  John Koelndorfer
 #
 # This program is free software: you can redistribute it and/or modify
