@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import shlex
 import subprocess
 import sys
 
@@ -61,10 +62,18 @@ class TmuxInterface(object):
         """Executes a tmux subcommand."""
         tmux_command = [self.tmux_path]
         tmux_command.extend(command)
+        # First, we need to quote each part of tmux_command so that
+        # the arguments are not interpreted specially by the shell.
+        quoted_command = ' '.join([shlex.quote(s) for s in tmux_command])
+        # Then, we need to take the entire quoted command and quote it
+        # *again* since it will be passed to $SHELL -c.
+        shell_cmd = "$SHELL -l -c {0}".format(shlex.quote(quoted_command))
         output = None
         try:
+            # Eww, running with shell=True. Unfortunately, this seems to be the
+            # easiest way to run in the user's environment.
             output = subprocess.check_output(
-                tmux_command, stderr=subprocess.STDOUT
+                shell_cmd, stderr=subprocess.STDOUT, shell=True
             )
         except subprocess.CalledProcessError as e:
             raise TmuxCommandError(e.returncode, e.cmd, e.output)
