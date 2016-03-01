@@ -19,16 +19,16 @@ import configparser
 import hashlib
 import os
 import re
-import subprocess
 import time
 
 import appinterface
+
 
 class MinecraftServerManager(object):
     LOG_READ_WAIT = 1
 
     def __init__(self, interface, server_jar, user=None, log_path=None,
-        java_path='java', java_options='-Xmx2G -Xms2G', server_args='nogui'):
+                 java_path='java', java_options='-Xmx2G -Xms2G', server_args='nogui'):
         self.interface = interface
         self.server_jar = server_jar
         self.user = user
@@ -183,7 +183,7 @@ class Util(object):
 
         server_kwargs = dict()
         for arg in ['server_jar', 'user', 'log_path', 'java_path',
-            'java_options', 'server_args']:
+                    'java_options', 'server_args']:
             config_arg_name = arg.replace('_', ' ')
             try:
                 server_kwargs[arg] = config.get(section, config_arg_name)
