@@ -202,12 +202,18 @@ class MinecraftUser(object):
         md5 = hashlib.md5()
         offline_uuid_msg = 'OfflinePlayer:{}'.format(self.username).encode('utf8')
         md5.update(offline_uuid_msg)
-        digest = self.fixed_offline_digest(md5.digest())
-        digest_hex = codecs.encode(digest, 'hex').decode('utf8')
-        return self.format_uuid(digest_hex)
+        uuid = self.md5_to_java_uuid3(md5.digest())
+        uuid_hex = codecs.encode(uuid, 'hex').decode('utf8')
+        return self.format_uuid(uuid_hex)
 
     @classmethod
-    def fixed_offline_digest(cls, digest):
+    def md5_to_java_uuid3(cls, digest):
+        """
+        Converts a standard MD5 digest to a UUID version 3 in the same manner as Java as per RFC 4122.
+
+        See the OpenJDK implementation of Java's java.util.UUID.nameUUIDFromBytes for more information:
+        http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/6-b14/java/util/UUID.java#UUID.nameUUIDFromBytes%28byte[]%29
+        """
         d = list(digest)
         d[6] = d[6] & 0x0f | 0x30
         d[8] = d[8] & 0x3f | 0x80
