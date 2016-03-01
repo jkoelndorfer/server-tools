@@ -17,9 +17,11 @@
 import codecs
 import configparser
 import hashlib
+import json
 import os
 import re
 import time
+import urllib.request
 
 import appinterface
 
@@ -195,6 +197,8 @@ class Util(object):
 
 
 class MinecraftUser(object):
+    MOJANG_UUID_API_ENDPOINT = 'https://api.mojang.com/users/profiles/minecraft/{user}'
+
     def __init__(self, username):
         self.username = username
 
@@ -205,6 +209,12 @@ class MinecraftUser(object):
         uuid = self.md5_to_java_uuid3(md5.digest())
         uuid_hex = codecs.encode(uuid, 'hex').decode('utf8')
         return self.format_uuid(uuid_hex)
+
+    def online_uuid(self):
+        url = self.MOJANG_UUID_API_ENDPOINT.format(user=self.username)
+        response = urllib.request.urlopen(url)
+        obj = json.loads(response.read().decode('utf8'))
+        return self.format_uuid(obj['id'])
 
     @classmethod
     def md5_to_java_uuid3(cls, digest):
