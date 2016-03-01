@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import codecs
 import configparser
+import hashlib
 import os
 import re
 import subprocess
@@ -190,6 +192,41 @@ class Util(object):
                 # MinecraftServerManager can raise an exception
                 pass
         return MinecraftServerManager(interface, **server_kwargs)
+
+
+class MinecraftUser(object):
+    def __init__(self, username):
+        self.username = username
+
+    def offline_uuid(self):
+        md5 = hashlib.md5()
+        offline_uuid_msg = 'OfflinePlayer:{}'.format(self.username).encode('utf8')
+        md5.update(offline_uuid_msg)
+        digest = self.fixed_offline_digest(md5.digest())
+        digest_hex = codecs.encode(digest, 'hex').decode('utf8')
+        return self.format_uuid(digest_hex)
+
+    @classmethod
+    def fixed_offline_digest(cls, digest):
+        d = list(digest)
+        d[6] = d[6] & 0x0f | 0x30
+        d[8] = d[8] & 0x3f | 0x80
+        return bytes(d)
+
+    @classmethod
+    def format_uuid(cls, uuid):
+        # chunk indexes - where each "chunk" of the UUID starts (separated by hyphens)
+        ci = [0, 8, 12, 16, 20]
+        chunks = []
+        for i, _ in enumerate(ci):
+            start = ci[i]
+            try:
+                end = ci[i+1]
+            except IndexError:
+                end = None
+            chunks.append(uuid[start:end])
+        uuid = '-'.join(chunks)
+        return uuid
 
 class ServerCommandError(Exception): pass
 class ServerCommandTimeout(ServerCommandError): pass
